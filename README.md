@@ -46,7 +46,7 @@ export default function App() {
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `password` | `string` | `"acab1312"` | Mot de passe |
+| `password` | `string` | `"admin"` | Mot de passe |
 | `onSuccess` | `() => void` | required | Callback apres login |
 | `logoUrl` | `string` | `"https://solilok.fr"` | Lien du logo |
 | `autoLockMinutes` | `number` | `20` | Auto-lock (0 = off) |
