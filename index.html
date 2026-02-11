@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terminal Login</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #000;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+      overflow: hidden;
+      cursor: default;
+    }
+
+    /* Logo */
+    .logo {
+      margin-bottom: 2rem;
+      transition: opacity 0.2s;
+      text-decoration: none;
+    }
+    .logo:hover { opacity: 0.8; }
+    .logo svg { width: 80px; height: 80px; }
+
+    /* Terminal prompt */
+    .terminal {
+      text-align: center;
+      position: relative;
+    }
+
+    .error-msg {
+      font-size: 1rem;
+      color: transparent;
+      transition: color 0.1s;
+      user-select: none;
+    }
+    .error-msg.visible {
+      color: #ef4444;
+    }
+
+    /* Blinking cursor */
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0; }
+    }
+    .cursor {
+      display: inline-block;
+      width: 12px;
+      height: 24px;
+      background: #fff;
+      vertical-align: middle;
+      animation: blink 1s infinite;
+    }
+
+    /* Hidden input */
+    .hidden-input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* Success animation */
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+    .fade-out {
+      animation: fadeOut 0.5s ease forwards;
+    }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .logo svg { width: 64px; height: 64px; }
+      .error-msg { font-size: 0.875rem; }
+      .cursor { width: 10px; height: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="login-screen">
+    <!-- Logo S. -->
+    <a href="https://solilok.fr" target="_blank" rel="noopener noreferrer" class="logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+        <rect width="32" height="32" rx="4" fill="#111"/>
+        <text x="2" y="26" font-family="ui-monospace, monospace" font-size="26" font-weight="bold" fill="#fff">S</text>
+        <text x="18" y="26" font-family="ui-monospace, monospace" font-size="26" font-weight="bold" fill="#666">.</text>
+      </svg>
+    </a>
+
+    <!-- Terminal -->
+    <form id="login-form" class="terminal">
+      <div>
+        <span id="error-msg" class="error-msg">Access denied</span>
+        <span class="cursor"></span>
+      </div>
+      <input
+        id="password-input"
+        type="password"
+        class="hidden-input"
+        autocomplete="off"
+        autofocus
+      />
+    </form>
+  </div>
+
+  <script>
+    // ============================================
+    // CONFIGURATION - Modifie ces valeurs
+    // ============================================
+    const CONFIG = {
+      password: 'acab1312',           // Mot de passe
+      redirectUrl: null,               // URL après login (null = reste sur la page)
+      sessionKey: 'authenticated',     // Clé sessionStorage
+      autoLockMinutes: 20,             // Auto-lock après X minutes (0 = désactivé)
+      onSuccess: null,                 // Callback fonction après login: () => {}
+    };
+    // ============================================
+
+    const form = document.getElementById('login-form');
+    const input = document.getElementById('password-input');
+    const errorMsg = document.getElementById('error-msg');
+    const loginScreen = document.getElementById('login-screen');
+
+    // Focus input on any click
+    document.addEventListener('click', (e) => {
+      if (e.target.tagName !== 'A') input.focus();
+    });
+
+    // Handle submit
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      if (input.value === CONFIG.password) {
+        // Success
+        sessionStorage.setItem(CONFIG.sessionKey, 'true');
+        sessionStorage.setItem('lastActivity', Date.now().toString());
+
+        loginScreen.classList.add('fade-out');
+
+        setTimeout(() => {
+          if (CONFIG.onSuccess) {
+            CONFIG.onSuccess();
+          } else if (CONFIG.redirectUrl) {
+            window.location.href = CONFIG.redirectUrl;
+          } else {
+            loginScreen.style.display = 'none';
+            document.body.style.background = 'transparent';
+          }
+        }, 500);
+      } else {
+        // Error
+        errorMsg.classList.add('visible');
+        input.value = '';
+        setTimeout(() => errorMsg.classList.remove('visible'), 1000);
+      }
+    });
+
+    // Check existing session
+    (function checkSession() {
+      const isAuth = sessionStorage.getItem(CONFIG.sessionKey) === 'true';
+      const lastActivity = parseInt(sessionStorage.getItem('lastActivity') || '0');
+      const timeout = CONFIG.autoLockMinutes * 60 * 1000;
+
+      if (isAuth && timeout > 0 && Date.now() - lastActivity > timeout) {
+        sessionStorage.removeItem(CONFIG.sessionKey);
+        sessionStorage.removeItem('lastActivity');
+      } else if (isAuth) {
+        loginScreen.style.display = 'none';
+        document.body.style.background = 'transparent';
+      }
+    })();
+
+    // Auto-lock timer
+    if (CONFIG.autoLockMinutes > 0) {
+      ['click', 'keydown', 'scroll'].forEach(event => {
+        window.addEventListener(event, () => {
+          sessionStorage.setItem('lastActivity', Date.now().toString());
+        });
+      });
+
+      setInterval(() => {
+        const lastActivity = parseInt(sessionStorage.getItem('lastActivity') || '0');
+        if (Date.now() - lastActivity > CONFIG.autoLockMinutes * 60 * 1000) {
+          sessionStorage.removeItem(CONFIG.sessionKey);
+          sessionStorage.removeItem('lastActivity');
+          loginScreen.style.display = '';
+          loginScreen.classList.remove('fade-out');
+          document.body.style.background = '#000';
+          input.focus();
+        }
+      }, 60000);
+    }
+
+    // Initial focus
+    input.focus();
+  </script>
+</body>
+</html>
